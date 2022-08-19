@@ -99,13 +99,12 @@ public class UserprofileServiceImpl extends ServiceImpl<UserfileMapper, UserFile
             userFileLambdaUpdateWrapper.set(UserFile::getDeleteFlag, 1)
                     .set(UserFile::getDeleteBatchNum, uuid)
                     .set(UserFile::getDeleteTime, DateUtil.getCurrentTime())
-                    .set(UserFile::getFilePath,"")
                     .eq(UserFile::getUserFileId, userFileId);
-            userfileMapper.update(null, userFileLambdaUpdateWrapper);
     
             String filePath = userFile.getFilePath() + userFile.getFileName() + "/";
             updateFileDeleteStateByFilePath(filePath, userFile.getDeleteBatchNum(), sessionUserId);
-    
+
+            userfileMapper.delete(userFileLambdaUpdateWrapper);
         }else{
     
             UserFile userFileTemp = userfileMapper.selectById(userFileId);
@@ -156,6 +155,8 @@ public class UserprofileServiceImpl extends ServiceImpl<UserfileMapper, UserFile
             List<UserFile> fileList = selectFileTreeListLikeFilePath(filePath, userId);
             for (UserFile userFileTemp : fileList) {
                 executor.execute(() -> {
+                    if(userFileTemp.getIsDir() == 0){
+                    File file = fileMapper.selectById(userFileTemp.getFileId());
                     //标记删除标志
                     LambdaUpdateWrapper<UserFile> userFileLambdaUpdateWrapper1 = new LambdaUpdateWrapper<>();
                     userFileLambdaUpdateWrapper1.set(UserFile::getDeleteFlag, 1)
@@ -165,7 +166,29 @@ public class UserprofileServiceImpl extends ServiceImpl<UserfileMapper, UserFile
                             .eq(UserFile::getUserFileId, userFileTemp.getUserFileId())
                             .eq(UserFile::getDeleteFlag, 0);
                     userfileMapper.update(null, userFileLambdaUpdateWrapper1);
-                });
+
+                    Deleter deleter = null;
+                    if(file.getStorageType()==0){
+                        deleter = localStorageOperationFactory.getDeleter();
+                    }
+                    DeleteFile deleteFile = new DeleteFile();
+                    deleteFile.setFileUrl(file.getFileUrl());
+                    deleteFile.setTimeStampName(file.getTimeStampName());
+                    assert deleter != null;
+                    deleter.delete(deleteFile);
+                }
+                else{
+                    LambdaUpdateWrapper<UserFile> userFileLambdaUpdateWrapper1 = new LambdaUpdateWrapper<>();
+                    userFileLambdaUpdateWrapper1.set(UserFile::getDeleteFlag, 1)
+                            .set(UserFile::getDeleteBatchNum, deleteBatchNum)
+                            .set(UserFile::getDeleteTime, DateUtil.getCurrentTime())
+                            .eq(UserFile::getUserFileId, userFileTemp.getUserFileId());
+
+                    String filePath1 = userFileTemp.getFilePath() + userFileTemp.getFileName() + "/";
+                    updateFileDeleteStateByFilePath(filePath1, userFileTemp.getDeleteBatchNum(), userId);
+
+                    userfileMapper.delete(userFileLambdaUpdateWrapper1);
+                }});
 
             }
         }).start();
