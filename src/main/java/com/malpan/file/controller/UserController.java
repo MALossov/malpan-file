@@ -72,8 +72,8 @@ public class UserController {
     public RestResult<String> register(HttpSession httpSession,@RequestBody RegisterDTO registerDTO) {
         RestResult<String> restResult = null;
         User user = new User();
-        if(!registerDTO.getVerifyCode().equals(httpSession.getAttribute("verifyCode"))
-        && !registerDTO.getMailbox().equals(httpSession.getAttribute("verifyMailbox"))){
+        if(!(registerDTO.getVerifyCode().equals(httpSession.getAttribute("verifyCode"))&&
+         registerDTO.getMailbox().equals(httpSession.getAttribute("verifyMail")))){
             return RestResult.fail().message("验证码错误");
         }
         user.setUsername(registerDTO.getUsername());
