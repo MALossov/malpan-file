@@ -11,7 +11,6 @@ import com.malpan.file.dto.DownloadFileDTO;
 import com.malpan.file.common.RestResult;
 import com.malpan.file.dto.UploadFileDTO;
 import com.malpan.file.model.File;
-import com.malpan.file.model.Storage;
 import com.malpan.file.model.User;
 import com.malpan.file.model.UserFile;
 import com.malpan.file.service.FileService;
@@ -117,9 +116,6 @@ public class FiletransferController {
     public RestResult<Long> getStorage(@RequestHeader("token") String token) {
 
         User sessionUserBean = userService.getUserByToken(token);
-        Storage storageBean = new Storage();
-
-
         Long storageSize = filetransferService.selectStorageSizeByUserId(sessionUserBean.getUserId());
         return RestResult.success().data(storageSize);
 

@@ -9,8 +9,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 
 @Data
-@Table(name = "userfile", uniqueConstraints = {
-        @UniqueConstraint(name = "fileindex", columnNames = {"fileName", "filePath", "extendName"})})
+@Table(name = "userfile")
 @Entity
 @TableName("userfile")
 public class UserFile {

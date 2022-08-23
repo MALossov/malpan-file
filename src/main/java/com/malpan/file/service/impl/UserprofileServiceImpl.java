@@ -118,16 +118,32 @@ public class UserprofileServiceImpl extends ServiceImpl<UserfileMapper, UserFile
                     .eq(UserFile::getUserFileId, userFileTemp.getUserFileId());
             userfileMapper.update(null, userFileLambdaUpdateWrapper);
 
-            Deleter deleter = null;
-            if(file.getStorageType()==0){
-                deleter = localStorageOperationFactory.getDeleter();
+            //ReManage the FILE_DELETE_LOGIC
+            //if scanned multi records for this file in users' files
+            //than skip the local delete
+            //List<UserfileListVO> userFileTmpList;
+            Map<String,Object> tmpFileMapper = new HashMap<>();
+            tmpFileMapper.put("fileId",userFileTemp.getFileId());
+            List<UserFile> DeleteUserFileTmpList=userfileMapper.selectByMap(tmpFileMapper);
+            long unDeletedFileCount = 0;
+            for(UserFile tmpUserFile2Query : DeleteUserFileTmpList){
+                if(tmpUserFile2Query.getDeleteFlag() == 0)
+                    unDeletedFileCount ++;
             }
-            DeleteFile deleteFile = new DeleteFile();
-            deleteFile.setFileUrl(file.getFileUrl());
-            deleteFile.setTimeStampName(file.getTimeStampName());
-            assert deleter != null;
-            deleter.delete(deleteFile);
-    
+
+            if(unDeletedFileCount == 0) {
+                fileMapper.deleteById(userFileTemp.getFileId());
+
+                Deleter deleter = null;
+                if (file.getStorageType() == 0) {
+                    deleter = localStorageOperationFactory.getDeleter();
+                }
+                DeleteFile deleteFile = new DeleteFile();
+                deleteFile.setFileUrl(file.getFileUrl());
+                deleteFile.setTimeStampName(file.getTimeStampName());
+                assert deleter != null;
+                deleter.delete(deleteFile);
+            }
         }
     }
     
@@ -155,41 +171,7 @@ public class UserprofileServiceImpl extends ServiceImpl<UserfileMapper, UserFile
             List<UserFile> fileList = selectFileTreeListLikeFilePath(filePath, userId);
             for (UserFile userFileTemp : fileList) {
                 executor.execute(() -> {
-                    if(userFileTemp.getIsDir() == 0){
-                    File file = fileMapper.selectById(userFileTemp.getFileId());
-                    //标记删除标志
-                    LambdaUpdateWrapper<UserFile> userFileLambdaUpdateWrapper1 = new LambdaUpdateWrapper<>();
-                    userFileLambdaUpdateWrapper1.set(UserFile::getDeleteFlag, 1)
-                            .set(UserFile::getDeleteTime, DateUtil.getCurrentTime())
-                            .set(UserFile::getFilePath,"")
-                            .set(UserFile::getDeleteBatchNum, deleteBatchNum)
-                            .eq(UserFile::getUserFileId, userFileTemp.getUserFileId())
-                            .eq(UserFile::getDeleteFlag, 0);
-                    userfileMapper.update(null, userFileLambdaUpdateWrapper1);
-
-                    Deleter deleter = null;
-                    if(file.getStorageType()==0){
-                        deleter = localStorageOperationFactory.getDeleter();
-                    }
-                    DeleteFile deleteFile = new DeleteFile();
-                    deleteFile.setFileUrl(file.getFileUrl());
-                    deleteFile.setTimeStampName(file.getTimeStampName());
-                    assert deleter != null;
-                    deleter.delete(deleteFile);
-                }
-                else{
-                    LambdaUpdateWrapper<UserFile> userFileLambdaUpdateWrapper1 = new LambdaUpdateWrapper<>();
-                    userFileLambdaUpdateWrapper1.set(UserFile::getDeleteFlag, 1)
-                            .set(UserFile::getDeleteBatchNum, deleteBatchNum)
-                            .set(UserFile::getDeleteTime, DateUtil.getCurrentTime())
-                            .eq(UserFile::getUserFileId, userFileTemp.getUserFileId());
-
-                    String filePath1 = userFileTemp.getFilePath() + userFileTemp.getFileName() + "/";
-                    updateFileDeleteStateByFilePath(filePath1, userFileTemp.getDeleteBatchNum(), userId);
-
-                    userfileMapper.delete(userFileLambdaUpdateWrapper1);
-                }});
-
+                    deleteUserFile(userFileTemp.getUserFileId(),userId);});
             }
         }).start();
     }
